@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+build/
+dist/
+artifacts/
+.env
+.venv/
+
+# Private, machine-local continuity store — never ship real stores (grow your own
+# via the wake-protocol ritual). Test fixtures live under tests/.
+.aethermind/
+
+# Local agent/session scratch that is not part of the repo.
+.cairn/
+.hermes/
+.playwright-mcp/
+.superpowers-progress.md
+
+# Stale commercial release-evidence packets were removed in Phase 0; keep them out.
+release-evidence/
+screenshots/
+tmp/

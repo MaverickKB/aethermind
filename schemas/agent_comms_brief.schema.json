@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aethermind.dev/schemas/agent_comms_brief.schema.json",
+  "title": "AetherMind Pro comms brief response",
+  "description": "Derived from docs/plans/harness-neutral-source-contract-spec.md. A brief carries the JSON capsule plus its equivalent plaintext handoff.",
+  "type": "object",
+  "required": ["ok", "command", "capsule", "plaintext", "evidence"],
+  "additionalProperties": true,
+  "properties": {
+    "ok": { "type": "boolean" },
+    "command": { "const": "comms brief" },
+    "capsule": { "$ref": "agent_comms_capsule.schema.json" },
+    "plaintext": { "type": "string" },
+    "evidence": {
+      "type": "object",
+      "required": ["proof_surface", "tier_eligible", "blockers"],
+      "properties": {
+        "proof_surface": { "type": "string" },
+        "tier_eligible": { "type": "array", "items": { "type": "string" } },
+        "blockers": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+AetherMind
+Copyright (c) MaverickKB
+
+LICENSE STATUS: PENDING LEGAL REVIEW
+====================================
+
+There is deliberately no LICENSE file in this repository yet.
+
+The intended license is the Business Source License 1.1 (BUSL-1.1):
+  - Additional Use Grant: free for individuals, nonprofits, research, and
+    personal/internal noncommercial use.
+  - Change License: Apache-2.0.
+  - Change Date: three years after each version's release (the commons inherits
+    everything automatically).
+
+This is *source-available*, not OSI open source, until the Change Date converts each
+version to Apache-2.0. That auto-conversion is the promise: the mechanism becomes
+fully open on a fixed schedule.
+
+Until the LICENSE file lands after an IP-attorney review of the Additional Use Grant
+wording:
+
+  ALL RIGHTS RESERVED. You may read this source. Do not redistribute it, publish
+  derivative works, or use it commercially.
+
+Commercial licensing terms will be documented in COMMERCIAL_LICENSE.md alongside the
+LICENSE.
+
+Vendored components:
+  - src/aethermind_pro/ed25519.py is a vendored pure-Python implementation of
+    Ed25519 (RFC 8032), a public-domain construction. It backs optional layer
+    provenance.

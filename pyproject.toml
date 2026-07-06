@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aethermind-pro"
+version = "0.0.0"
+description = "AetherMind: local-first continuity layer and machine-aware coordinator above the AetherMind primitive (source-available)."
+readme = "README.md"
+requires-python = ">=3.9"
+# License file lands after legal review (planned: BUSL-1.1). Until then, see NOTICE:
+# all rights reserved, do not redistribute.
+license = { text = "LicenseRef-Proprietary-Pending-BUSL-1.1" }
+authors = [{ name = "MaverickKB" }]
+dependencies = []
+
+[project.scripts]
+aethermind-pro = "aethermind_pro.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]

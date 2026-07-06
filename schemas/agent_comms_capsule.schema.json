@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aethermind.dev/schemas/agent_comms_capsule.schema.json",
+  "title": "AetherMind Pro harness-neutral comms capsule",
+  "description": "Derived from docs/plans/harness-neutral-source-contract-spec.md lines 85-135. Neutral handoff capsule consumed identically by all first-class harnesses.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "capsule_id",
+    "created_at",
+    "project",
+    "continuity",
+    "cortex",
+    "trust",
+    "harness",
+    "evidence",
+    "redaction"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "const": "aethermind-pro-handoff-v1" },
+    "capsule_id": { "type": "string" },
+    "created_at": { "type": "string" },
+    "project": {
+      "type": "object",
+      "required": ["root_id", "display_name", "workspace_kind"],
+      "properties": {
+        "root_id": { "type": "string" },
+        "display_name": { "type": "string" },
+        "workspace_kind": {
+          "enum": ["code_repo", "creative_writing", "research", "notes", "general", "mixed", "unknown"]
+        }
+      }
+    },
+    "continuity": {
+      "type": "object",
+      "required": ["store", "freshness", "last_layer_id", "summary"],
+      "properties": {
+        "store": { "type": "string" },
+        "freshness": { "enum": ["fresh", "stale", "missing", "corrupt", "unknown"] },
+        "last_layer_id": { "type": ["string", "null"] },
+        "summary": { "type": "string" }
+      }
+    },
+    "cortex": {
+      "type": "object",
+      "required": ["verdict", "pressure_codes", "repair_lanes", "next_actions"],
+      "properties": {
+        "verdict": { "enum": ["proceed", "pause", "repair", "blocked", "unknown"] },
+        "pressure_codes": { "type": "array", "items": { "type": "string" } },
+        "repair_lanes": { "type": "array", "items": { "type": "string" } },
+        "next_actions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "required": ["required", "verdict", "audit_event_id"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "verdict": { "enum": ["safe", "questionable", "dangerous", "not_reviewed", "not_required"] },
+        "audit_event_id": { "type": ["string", "null"] }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "required": ["target", "capabilities_required", "capabilities_available", "unsupported"],
+      "properties": {
+        "target": { "enum": ["hermes", "grok_build", "codex", "claude_code", "custom", "future"] },
+        "capabilities_required": { "type": "array", "items": { "type": "string" } },
+        "capabilities_available": { "type": "array", "items": { "type": "string" } },
+        "unsupported": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["proof_surface", "observation_mode", "distribution_mode", "tier_eligible", "blockers"],
+      "properties": {
+        "proof_surface": { "enum": ["source_tree", "protected_artifact", "clean_extract", "clean_machine"] },
+        "observation_mode": { "enum": ["cli_only", "visual_keyboard_mouse", "automated_ci", "update_server"] },
+        "distribution_mode": { "enum": ["none", "manual_in_house", "ci_artifact", "update_server"] },
+        "tier_eligible": { "type": "array", "items": { "type": "string" } },
+        "blockers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "required": ["raw_project_content_included", "private_paths_included", "secrets_included"],
+      "properties": {
+        "raw_project_content_included": { "const": false },
+        "private_paths_included": { "const": false },
+        "secrets_included": { "const": false }
+      }
+    }
+  }
+}
