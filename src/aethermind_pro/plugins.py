@@ -22,7 +22,7 @@ from . import evidence, responses
 
 PUBLIC_PLUGIN_SOURCE = "https://github.com/MaverickKB/aethermind-hermes-plugin"
 PUBLIC_PLUGIN_REPO = "MaverickKB/aethermind-hermes-plugin"
-COMPATIBILITY_RANGE = ">=0.1.0,<0.2.0"
+COMPATIBILITY_RANGE = ">=0.1.0,<0.3.0"
 PLUGIN_NAME = "aethermind"
 HERMES_INSTALL_COMMAND = f"hermes plugins install {PUBLIC_PLUGIN_REPO} --enable"
 
@@ -38,7 +38,7 @@ def _version_tuple(version: str) -> Optional[tuple]:
 
 def _compatible(version: str) -> bool:
     parsed = _version_tuple(version)
-    return parsed is not None and (0, 1, 0) <= parsed < (0, 2, 0)
+    return parsed is not None and (0, 1, 0) <= parsed < (0, 3, 0)
 
 
 def probe_installed(*, home: "str | Path | None" = None) -> Optional[Dict[str, Any]]:

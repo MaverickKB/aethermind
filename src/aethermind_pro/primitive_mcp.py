@@ -15,17 +15,20 @@ defined by the OSS primitive contract.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-STORE_DIRNAME = ".aethermind"
-LAYERS_FILE = "layers.jsonl"
-MANIFEST_FILE = "manifest.json"
+from . import aem_codec
 
-BUNDLED_VERSION = "aethermind-bundled-0.1.0"
-COMPATIBILITY_RANGE = ">=0.1.0,<0.2.0"
+STORE_DIRNAME = ".aethermind"
+LAYERS_FILE = "layers.aem"
+LEGACY_LAYERS_FILE = "layers.jsonl"
+
+BUNDLED_VERSION = "aethermind-bundled-0.2.0"
+COMPATIBILITY_RANGE = ">=0.1.0,<0.3.0"
 
 POLICY_ERRORS = (
     "data_root_required",
@@ -83,7 +86,7 @@ def _store_dir(data_root: Path) -> Path:
 
 
 def _is_initialized(data_root: Path) -> bool:
-    return (_store_dir(data_root) / MANIFEST_FILE).exists()
+    return _store_dir(data_root).is_dir()
 
 
 def call(tool: str, params: Dict[str, Any], policy: Optional[PrimitivePolicy] = None) -> Dict[str, Any]:
@@ -115,50 +118,116 @@ def call(tool: str, params: Dict[str, Any], policy: Optional[PrimitivePolicy] = 
 
 def _status(data_root: Path) -> Dict[str, Any]:
     initialized = _is_initialized(data_root)
-    layer_count = 0
-    if initialized:
-        layers_path = _store_dir(data_root) / LAYERS_FILE
-        if layers_path.exists():
-            layer_count = sum(1 for line in layers_path.read_text(encoding="utf-8").splitlines() if line.strip())
+    read = _read_layers(data_root) if initialized else {"layers": [], "corrupt": False}
+    legacy_count = sum(1 for item in read.get("layers", []) if item.get("store_format") == "legacy-jsonl")
+    aem_count = len(read.get("layers", [])) - legacy_count
     return _ok(
         initialized=initialized,
         store="project_local",
         provenance="bundled",
         version=BUNDLED_VERSION,
         compatibility_range=COMPATIBILITY_RANGE,
-        visible_layers=layer_count,
+        format="aem-light-v1",
+        visible_layers=len(read.get("layers", [])),
+        aem_layers=aem_count,
+        legacy_jsonl_layers=legacy_count,
+        legacy_jsonl_preserved=(_store_dir(data_root) / LEGACY_LAYERS_FILE).exists(),
+        corrupt=bool(read.get("corrupt")),
     )
 
 
 def _init_store(data_root: Path) -> Dict[str, Any]:
     store = _store_dir(data_root)
+    created = not store.exists()
     store.mkdir(parents=True, exist_ok=True)
-    manifest_path = store / MANIFEST_FILE
-    if not manifest_path.exists():
-        manifest = {
-            "store_version": "aethermind-store-v1",
-            "created_at": _now(),
-            "provenance": "bundled",
-            "compatibility_range": COMPATIBILITY_RANGE,
-        }
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-        created = True
-    else:
-        created = False
-    return _ok(store="project_local", created=created, already_present=not created)
+    return _ok(
+        store="project_local",
+        format="aem-light-v1",
+        created=created,
+        already_present=not created,
+        legacy_jsonl_preserved=(store / LEGACY_LAYERS_FILE).exists(),
+    )
+
+
+_SEMANTIC_TYPE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
+_RFC3339 = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$"
+)
+
+
+def _semantic_type(layer: Dict[str, Any]) -> str:
+    value = str(layer.get("type") or layer.get("kind") or "discovery").lower()
+    value = re.sub(r"[^a-z0-9-]+", "-", value).strip("-")
+    return value if _SEMANTIC_TYPE.fullmatch(value) else "discovery"
+
+
+def _layer_body(layer: Dict[str, Any]) -> str:
+    body = layer.get("body")
+    if isinstance(body, str) and body.strip():
+        return body
+    facts = layer.get("observed_facts")
+    if facts:
+        return "Workspace observation: " + json.dumps(
+            facts, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )
+    kind = str(layer.get("kind") or "continuity")
+    source = str(layer.get("source") or "aethermind-pro")
+    return "%s recorded by %s" % (kind.replace("_", " "), source)
+
+
+def canonicalize_layer(layer: Dict[str, Any]) -> Dict[str, Any]:
+    timestamp = layer.get("created_at") or layer.get("ts") or _now()
+    if not isinstance(timestamp, str) or not _RFC3339.fullmatch(timestamp):
+        timestamp = _now()
+    layer_id = layer.get("layer_id") or layer.get("id") or ("aem-pro-" + uuid.uuid4().hex[:16])
+    markers = layer.get("markers")
+    if not isinstance(markers, list) or not all(isinstance(item, str) for item in markers):
+        markers = []
+    confidence = layer.get("conf", 1.0)
+    if isinstance(confidence, bool):
+        raise ValueError("conf must be numeric, not boolean")
+    record: Dict[str, Any] = {
+        "id": str(layer_id),
+        "ts": timestamp,
+        "author": str(layer.get("author") or "aethermind-pro"),
+        "type": _semantic_type(layer),
+        "body": _layer_body(layer),
+        "ctx": str(layer.get("ctx") or "aethermind-pro/%s" % _semantic_type(layer)),
+        "conf": float(confidence),
+        "markers": markers,
+        "primitive": str(layer.get("primitive") or "layer"),
+        "x_pro_payload": json.dumps(layer, sort_keys=True, separators=(",", ":"), ensure_ascii=False),
+    }
+    aliases = {
+        "kind": layer.get("kind"),
+        "label": layer.get("workspace_kind"),
+        "content_id": layer.get("root_id"),
+        "source_tool": layer.get("source"),
+        "sig": layer.get("sig"),
+        "sig_key_id": layer.get("sig_key_id"),
+    }
+    for key, value in aliases.items():
+        if isinstance(value, str) and value:
+            record[key] = value
+    return record
 
 
 def _write_layer(data_root: Path, layer: Dict[str, Any]) -> Dict[str, Any]:
     if not _is_initialized(data_root):
         return _error("uninitialized_data_root", "store is not initialized; call init_store first")
-    layer_id = layer.get("layer_id") or ("layer-" + uuid.uuid4().hex[:16])
-    record = dict(layer)
-    record["layer_id"] = layer_id
-    record.setdefault("created_at", _now())
-    layers_path = _store_dir(data_root) / LAYERS_FILE
-    with layers_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, sort_keys=True) + "\n")
-    return _ok(layer_id=layer_id, store="project_local")
+    try:
+        record = canonicalize_layer(layer)
+        receipt = aem_codec.append_layer(_store_dir(data_root) / LAYERS_FILE, record)
+    except (OSError, TypeError, ValueError, aem_codec.AEMError) as exc:
+        return _error("aem_write_failed", str(exc))
+    return _ok(
+        layer_id=receipt["layer_id"],
+        id=receipt["layer_id"],
+        store="project_local",
+        format="aem-light-v1",
+        record_hash=receipt["record_hash"],
+        legacy_jsonl_preserved=(_store_dir(data_root) / LEGACY_LAYERS_FILE).exists(),
+    )
 
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -243,16 +312,64 @@ def serve(stdin=None, stdout=None) -> int:
 def _read_layers(data_root: Path) -> Dict[str, Any]:
     if not _is_initialized(data_root):
         return _error("uninitialized_data_root", "store is not initialized")
-    layers_path = _store_dir(data_root) / LAYERS_FILE
     layers: List[Dict[str, Any]] = []
     corrupt = False
-    if layers_path.exists():
-        for line in layers_path.read_text(encoding="utf-8").splitlines():
+    legacy_path = _store_dir(data_root) / LEGACY_LAYERS_FILE
+    if legacy_path.exists():
+        try:
+            legacy_lines = legacy_path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeError):
+            legacy_lines = []
+            corrupt = True
+        for line in legacy_lines:
             line = line.strip()
             if not line:
                 continue
             try:
-                layers.append(json.loads(line))
+                legacy = json.loads(line)
+                if not isinstance(legacy, dict):
+                    raise ValueError("legacy layer must be an object")
+                legacy["store_format"] = "legacy-jsonl"
+                layers.append(legacy)
+            except (json.JSONDecodeError, ValueError):
+                corrupt = True
+    report = aem_codec.read_report(_store_dir(data_root) / LAYERS_FILE)
+    corrupt = corrupt or bool(report["issues"])
+    for record in report["layers"]:
+        restored: Dict[str, Any] = {}
+        payload = record.get("x_pro_payload")
+        if isinstance(payload, str):
+            try:
+                decoded = json.loads(payload)
+                if isinstance(decoded, dict):
+                    restored.update(decoded)
             except json.JSONDecodeError:
                 corrupt = True
-    return _ok(layers=layers, count=len(layers), corrupt=corrupt)
+        restored.update({
+            "layer_id": record["id"],
+            "id": record["id"],
+            "created_at": record["ts"],
+            "ts": record["ts"],
+            "author": record["author"],
+            "type": record["type"],
+            "body": record["body"],
+            "ctx": record["ctx"],
+            "conf": record["conf"],
+            "markers": record["markers"],
+            "primitive": record.get("primitive", "layer"),
+            "kind": record.get("kind", restored.get("kind", record["type"])),
+            "store_format": "aem-light-v1",
+        })
+        for field in ("sig", "sig_key_id", "label", "content_id", "source_tool"):
+            if field in record:
+                restored[field] = record[field]
+        if record.get("label") and "workspace_kind" not in restored:
+            restored["workspace_kind"] = record["label"]
+        layers.append(restored)
+    return _ok(
+        layers=layers,
+        count=len(layers),
+        corrupt=corrupt,
+        issues=report["issues"],
+        legacy_jsonl_preserved=legacy_path.exists(),
+    )

@@ -35,3 +35,8 @@ The public AetherMind plugin is an installable harness adapter over that substra
 ## Data compatibility
 
 Bundled-substrate writes remain readable by the accepted OSS compatibility range. A later standalone OSS install must be able to read and write the same data-local `.aethermind/` store without migration loss.
+
+The AEM compatibility update preserves earlier coordinator stores in place.
+Existing JSONL records remain readable, while all new continuity appends to the
+canonical AEM ledger. Operators retain both representations during rollback so
+neither the legacy prefix nor newer AEM records are lost.

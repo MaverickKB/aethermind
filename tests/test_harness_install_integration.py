@@ -164,13 +164,12 @@ def test_hermes_apply_falls_back_honestly_without_hermes_cli(fake_home, state_di
     assert all(r["surface_kind"] != "plugin" for r in result["created_surfaces"])
 
 
-def test_hermes_apply_reports_incompatible_plugin(fake_home, state_dir):
+def test_hermes_apply_uses_existing_v02_plugin(fake_home, state_dir):
     installed_plugin_manifest(fake_home, "0.2.0")
     result = harnesses.bootstrap_apply("hermes", approve=True, state_dir=state_dir)
     assert result["ok"] is True
-    assert result["depth_tier_now"] == 2
-    codes = {d["code"] for d in result["degradation"]}
-    assert "plugin_incompatible" in codes
+    assert result["depth_tier_now"] == 4
+    assert not result["degradation"]
 
 
 def test_hermes_remove_uninstalls_pro_installed_plugin_only(fake_home, state_dir):
