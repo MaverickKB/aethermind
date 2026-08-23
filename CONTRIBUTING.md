@@ -66,5 +66,5 @@ use a synthetic value under `tests/`.
 
 ## Related repositories
 
-- [`aethermind-primitive`](https://github.com/MaverickKB) — the canonical `.aem` format and spec.
+- [`aethermind-primitive`](https://github.com/MaverickKB/aethermind-primitive) — the canonical `.aem` format and spec.
 - [`aethermind-hermes-plugin`](https://github.com/MaverickKB/aethermind-hermes-plugin) — the reference harness adapter.

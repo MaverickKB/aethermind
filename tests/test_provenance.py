@@ -14,7 +14,7 @@ from aethermind_pro import cli, ed25519, provenance
 
 
 def _make_store(root: Path, records):
-    """Write a minimal .aethermind/layers.jsonl store (as the primitive does)."""
+    """Write a minimal legacy coordinator JSONL store."""
     store = root / ".aethermind"
     store.mkdir(parents=True, exist_ok=True)
     (store / "manifest.json").write_text(

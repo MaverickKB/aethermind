@@ -21,7 +21,7 @@ AetherMind is three cross-linked repositories:
 
 - **aethermind** (this repo) — the local-machine coordinator: CLI, wake/coordinate
   surfaces, harness adapters, layer provenance.
-- **aethermind-primitive** — the canonical `.aem` store format and spec: the part that
+- **[aethermind-primitive](https://github.com/MaverickKB/aethermind-primitive)** — the canonical `.aem` store format and spec: the part that
   outlives every implementation.
 - **[aethermind-hermes-plugin](https://github.com/MaverickKB/aethermind-hermes-plugin)** —
   a reference harness adapter (worked example of the conformance contract).
@@ -47,6 +47,12 @@ sudo aethermind-pro-uninstall   # removes Pro-managed files, preserves project .
 ```
 
 Uninstall preserves each project's `.aethermind/` continuity store.
+
+New continuity records use canonical `.aem` files. If an earlier coordinator
+created `layers.jsonl`, AetherMind continues to read that file without changing
+it and appends every new record to `layers.aem`. See
+[`docs/UPGRADING_TO_AEM.md`](docs/UPGRADING_TO_AEM.md) before updating an
+existing installation.
 
 ## What it does
 
@@ -93,5 +99,8 @@ Expected result:
 - [`docs/PRODUCT_DEFINITION.md`](docs/PRODUCT_DEFINITION.md) — what this is and is not.
 - [`docs/LOCAL_COORDINATOR_ARCHITECTURE.md`](docs/LOCAL_COORDINATOR_ARCHITECTURE.md) — the coordinator's shape.
 - [`docs/LAYER_PROVENANCE.md`](docs/LAYER_PROVENANCE.md) — optional Ed25519 layer signing.
+- [`docs/METHODS.md`](docs/METHODS.md) — current bundled primitive methods.
+- [`docs/UPGRADING_TO_AEM.md`](docs/UPGRADING_TO_AEM.md) — preservation and rollback for legacy stores.
+- [`CHANGELOG.md`](CHANGELOG.md) — public compatibility changes.
 - [`docs/HARNESS_CONFORMANCE_CONTRACT.md`](docs/HARNESS_CONFORMANCE_CONTRACT.md) — how a harness plugs in.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)

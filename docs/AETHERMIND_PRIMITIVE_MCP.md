@@ -6,6 +6,11 @@ The AetherMind primitive MCP server is a neutral adapter over the OSS data-local
 
 Every tool takes explicit `data_root` or `root`. There is no hidden cwd assumption.
 
+The bundled substrate writes canonical `.aethermind/layers.aem` records using
+the same required fields as the public primitive. Existing
+`.aethermind/layers.jsonl` records remain readable and byte-for-byte unchanged;
+new writes never append to JSONL.
+
 Read-safe tools:
 
 - `status`
@@ -30,9 +35,14 @@ The MCP substrate reports bounded errors that Pro can map into CORTEX pressure c
 - `mcp_write_tools_disabled`
 - `mcp_init_disabled`
 - `uninitialized_data_root`
+- `aem_write_failed`
 
 ## Pro relationship
 
 Pro may ship or call this MCP-compatible substrate and may install, detect, or repair the public harness plugin when a harness needs it. Pro remains the single installed host coordinator above those adapters: Atlas host profile, Ember/CORTEX pressure and repair semantics, support/export, and harness-neutral Agent Comms for Hermes, Grok Build, Codex, Claude/Claude Code, and future harnesses.
 
 Harness integration must be configurable. Commercial harnesses, custom harnesses, and bring-your-own local agents should use the same universal contract with configurable settings, custom resume-session definitions, and optional tracker/HUD status for last check-in or manual intervention. If a harness needs plugin-mediated access, Pro should detect, install, or repair the plugin without making the plugin Pro's implementation base.
+
+The bundled compatibility generation is `aethermind-bundled-0.2.0` and accepts
+the public 0.1 and 0.2 primitive or plugin generation. Compatibility is bounded
+below 0.3 until that contract is reviewed.

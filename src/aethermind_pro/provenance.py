@@ -30,7 +30,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from . import ed25519
+from . import aem_codec, ed25519
 
 # Fields excluded from the signed digest (they are the signature envelope itself).
 SIGNATURE_FIELDS = ("sig", "sig_key_id")
@@ -133,13 +133,9 @@ def layer_status(record: Dict[str, Any], pubkey: Optional[bytes]) -> str:
 
 
 def _read_layer_lines(store_path: Path) -> Tuple[list, bool]:
-    """Read layer records from a ``.aethermind/layers.jsonl`` store."""
-    layers_file = store_path / "layers.jsonl"
-    if store_path.name != ".aethermind":
-        # Accept either the project root or the store dir itself.
-        candidate = store_path / ".aethermind" / "layers.jsonl"
-        if candidate.exists():
-            layers_file = candidate
+    """Read legacy JSONL followed by canonical AEM records."""
+    store = store_path if store_path.name == ".aethermind" else store_path / ".aethermind"
+    layers_file = store / "layers.jsonl"
     records: list = []
     corrupt = False
     if layers_file.exists():
@@ -151,6 +147,22 @@ def _read_layer_lines(store_path: Path) -> Tuple[list, bool]:
                 records.append(json.loads(line))
             except json.JSONDecodeError:
                 corrupt = True
+    report = aem_codec.read_report(store / "layers.aem")
+    corrupt = corrupt or bool(report["issues"])
+    for layer in report["layers"]:
+        restored = dict(layer)
+        restored["layer_id"] = layer["id"]
+        restored["created_at"] = layer["ts"]
+        payload = layer.get("x_pro_payload")
+        if isinstance(payload, str):
+            try:
+                decoded = json.loads(payload)
+                if isinstance(decoded, dict):
+                    decoded.update(restored)
+                    restored = decoded
+            except json.JSONDecodeError:
+                corrupt = True
+        records.append(restored)
     return records, corrupt
 
 
@@ -168,6 +180,18 @@ def sign_store(store_path: "str | Path", secret: bytes) -> Dict[str, Any]:
     load-bearing field is rewritten, so existing parsers keep working.
     """
     path = Path(store_path).expanduser().resolve()
+    store = path if path.name == ".aethermind" else path / ".aethermind"
+    if (store / "layers.aem").exists():
+        records, corrupt = _read_layer_lines(path)
+        return {
+            "store": str(path),
+            "signed": 0,
+            "already_signed": sum(1 for record in records if record.get("sig")),
+            "layer_count": len(records),
+            "corrupt": corrupt,
+            "append_only_refusal": True,
+            "error": "existing AEM records are append-only and are not rewritten for signatures",
+        }
     records, corrupt = _read_layer_lines(path)
     if corrupt:
         return {

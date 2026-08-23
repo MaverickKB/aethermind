@@ -97,12 +97,13 @@ def investigate(
             "observed_facts": summary["observed_facts"],
             "root_id": stable_root_id(path),
         }
+        layer, provenance_result = _prepare_provenance(layer, state_dir)
         write_result = primitive_mcp.call("write_layer", {"data_root": str(path), "layer": layer}, policy)
         if not write_result.get("ok"):
             return _primitive_error("investigate", write_result)
         store_state = "already_present" if already else "created"
         layer_block = {"created": True, "layer_id": write_result["layer_id"], "store": "project_local"}
-        layer_block["provenance"] = _maybe_sign(path, state_dir)
+        layer_block["provenance"] = provenance_result
         audit.record_event("workspace_investigated", component="investigate",
                             root_id=stable_root_id(path), verdict_status="proceed")
         _register_root(state_dir, path, store_state, write_result["layer_id"])
@@ -131,28 +132,28 @@ def investigate(
     )
 
 
-def _maybe_sign(path: Path, state_dir) -> Dict[str, Any]:
-    """Opt-in layer signing. Never a write barrier: fails open to 'unsigned'.
+def _prepare_provenance(layer: Dict[str, Any], state_dir):
+    """Optionally sign the complete AEM record before its single append.
 
     Enabled only when the ``provenance.sign_new_layers`` setting is true and a
     readable secret key is configured at ``provenance.key_path``. Any failure leaves
-    the just-written layer unsigned rather than blocking the write.
+    the new layer unsigned rather than blocking the write.
     """
     settings = ProState(state_dir).load().get("settings", {}).get("provenance", {})
     if not settings.get("sign_new_layers"):
-        return {"signing": "disabled"}
+        return layer, {"signing": "disabled"}
     key_path = settings.get("key_path")
     if not key_path:
-        return {"signing": "enabled_but_no_key",
-                "note": "set provenance.key_path to a secret key from `keygen`"}
+        return layer, {"signing": "enabled_but_no_key",
+                       "note": "set provenance.key_path to a secret key from `keygen`"}
     try:
         secret = provenance.load_secret(key_path)
-        result = provenance.sign_store(path, secret)
+        canonical = primitive_mcp.canonicalize_layer(layer)
+        signed = provenance.sign_layer(canonical, secret)
     except (OSError, ValueError):
-        return {"signing": "enabled_but_key_unreadable",
-                "note": "provenance.key_path is not a readable 32-byte key; layer left unsigned"}
-    return {"signing": "signed", "key_id": result.get("key_id"),
-            "signed": result.get("signed", 0)}
+        return layer, {"signing": "enabled_but_key_unreadable",
+                       "note": "provenance.key_path is not a readable 32-byte key; layer left unsigned"}
+    return signed, {"signing": "signed", "key_id": signed.get("sig_key_id"), "signed": 1}
 
 
 def _register_root(state_dir, path: Path, store_state: str, layer_id: str) -> None:
